@@ -624,4 +624,172 @@ def main():
     pages[st.session_state.page]()
 
 
-main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# =============================================================================
+# CAMPUSOS PHONE PATCH
+# Paste this at the VERY BOTTOM of app_1.py (after the last line `main()`).
+# Nothing above needs to be deleted or changed.
+#
+#  - Phone (<= 768px): sidebar becomes a slide-over menu, hidden by default.
+#    The page uses the full phone width.
+#  - One round button (top-left): ☰ opens the menu, ✕ closes it.
+#    Tapping outside the menu, or any menu item, also closes it.
+#  - Tablet / desktop: sidebar stays on the left; the same button hides/shows it.
+#  - Metric cards stay 2 per row on phones, forms and tables fit the screen.
+# =============================================================================
+
+import streamlit as st
+import streamlit.components.v1 as components
+
+_PHONE_CSS = """
+<style>
+/* ---------- the one toggle button (created by the script below) ---------- */
+#cos-toggle {
+    display: none; position: fixed; top: 10px; left: 10px; z-index: 100002;
+    width: 44px; height: 44px; padding: 0; border-radius: 12px; cursor: pointer;
+    border: 1px solid #e2e8f0; background: #fff; color: #1e293b; font-size: 1.3rem;
+    box-shadow: 0 2px 8px rgba(15,23,42,.15); align-items: center; justify-content: center;
+}
+#cos-toggle::before { content: "☰"; }
+body:not(.cos-hide) #cos-toggle::before { content: "✕"; }
+body:has(.who) #cos-toggle { display: flex; }          /* only after login */
+#cos-backdrop { display: none; position: fixed; inset: 0; z-index: 100000; background: rgba(15,23,42,.35); }
+
+/* the old python toggle is not needed any more */
+html body.cos-ready .st-key-sbtoggle { display: none !important; }
+
+/* ---------- sidebar show / hide (all screen sizes) ---------- */
+html body.cos-ready:not(.cos-hide) [data-testid="stSidebar"] { display: block !important; }
+html body.cos-ready [data-testid="stSidebar"] { transition: transform .2s ease; }
+html body.cos-ready.cos-hide [data-testid="stSidebar"] {
+    transform: translateX(-105%) !important; visibility: hidden !important; box-shadow: none !important;
+}
+html body.cos-ready.cos-hide [data-testid="stAppViewContainer"]:has(.who) [data-testid="stMain"],
+html body.cos-ready.cos-hide [data-testid="stAppViewContainer"]:has(.who) section.main {
+    margin-left: 0 !important; width: 100% !important;
+}
+@media (min-width: 769px) {
+    body:not(.cos-hide) #cos-toggle { left: calc(var(--sbw, 250px) + 10px); }
+}
+
+/* ---------- PHONE ---------- */
+@media (max-width: 768px) {
+    /* sidebar = slide-over menu on top of the page */
+    html body.cos-ready [data-testid="stSidebar"],
+    html body.cos-ready [data-testid="stSidebar"][aria-expanded="false"] {
+        width: min(78vw, 290px) !important; min-width: min(78vw, 290px) !important;
+        max-width: min(78vw, 290px) !important; z-index: 100001 !important;
+        box-shadow: 6px 0 24px rgba(15,23,42,.22);
+    }
+    /* page always uses the full width */
+    html body.cos-ready [data-testid="stAppViewContainer"]:has(.who) [data-testid="stMain"],
+    html body.cos-ready [data-testid="stAppViewContainer"]:has(.who) section.main {
+        margin-left: 0 !important; width: 100% !important;
+    }
+    html body.cos-ready:not(.cos-hide) #cos-backdrop { display: block; }
+    html body.cos-ready:not(.cos-hide) #cos-toggle { left: calc(min(78vw, 290px) + 8px); }
+    html body.cos-ready.cos-hide #cos-toggle { left: 10px; }
+
+    /* spacing that fits a phone */
+    html body [data-testid="stMainBlockContainer"], html body .block-container {
+        padding: 4rem 1rem 2.5rem 1rem !important; max-width: 100% !important;
+    }
+    .page-title { font-size: 1.5rem; }
+    .page-sub { font-size: .92rem; }
+
+    /* metric cards: keep 2 per row */
+    [data-testid="stHorizontalBlock"]:has(.metric-card) { flex-wrap: nowrap !important; gap: .7rem !important; }
+    [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="stColumn"],
+    [data-testid="stHorizontalBlock"]:has(.metric-card) > [data-testid="column"] {
+        min-width: 0 !important; width: auto !important; flex: 1 1 0 !important;
+    }
+    .metric-card { padding: 1rem; }
+    .metric-card .m-label { font-size: .85rem; }
+    .metric-card .m-value { font-size: 1.6rem; }
+    .info-card { padding: 1rem; }
+    .info-card h3 { font-size: 1.1rem; }
+
+    /* tables */
+    .tbl { font-size: .85rem; }
+    .tbl th, .tbl td { padding: .7rem .6rem; }
+
+    /* sidebar text sizes inside the slide-over */
+    .side-title { font-size: 1.3rem; }
+    .who { font-size: .9rem; }
+}
+
+/* ---------- login card on phones ---------- */
+@media (max-width: 640px) {
+    html body [data-testid="stMainBlockContainer"]:has(.login-marker) {
+        margin: 1.5rem .75rem 0 !important; padding: 1.8rem 1.2rem 1.2rem !important;
+        max-width: none !important; width: auto !important;
+    }
+    .login-title { font-size: 1.7rem; }
+    .login-sub { font-size: 1.25rem; }
+}
+</style>
+"""
+
+_PHONE_JS = """
+<script>
+(function () {
+  try {
+    var w = window.parent, d = w.document;
+    if (d.body.classList.contains('cos-ready')) return;
+    d.body.classList.add('cos-ready');
+
+    var isMobile = function () { return w.matchMedia('(max-width: 768px)').matches; };
+    if (isMobile()) d.body.classList.add('cos-hide');          // phone: menu starts closed
+
+    var toggle = d.createElement('button');
+    toggle.id = 'cos-toggle'; toggle.type = 'button'; toggle.setAttribute('aria-label', 'Menu');
+    toggle.addEventListener('click', function (e) {
+      e.stopPropagation(); d.body.classList.toggle('cos-hide');
+    });
+
+    var backdrop = d.createElement('div');
+    backdrop.id = 'cos-backdrop';
+    backdrop.addEventListener('click', function () { d.body.classList.add('cos-hide'); });
+
+    d.body.appendChild(backdrop);
+    d.body.appendChild(toggle);
+
+    // on phones, close the menu after choosing an item / Logout
+    d.addEventListener('click', function (e) {
+      if (isMobile() && e.target.closest && e.target.closest('[data-testid="stSidebar"] button')) {
+        setTimeout(function () { d.body.classList.add('cos-hide'); }, 200);
+      }
+    }, true);
+  } catch (err) { /* if this fails, the app simply keeps its old behaviour */ }
+})();
+</script>
+"""
+
+st.markdown(_PHONE_CSS, unsafe_allow_html=True)
+components.html(_PHONE_JS, height=0)
+
